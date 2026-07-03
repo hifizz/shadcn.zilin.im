@@ -10,7 +10,15 @@ import {
   TooltipTrigger,
 } from "@/components/lumen/tooltip"
 
-function CopyCommandButton({ command }: { command: string }) {
+function CopyCommandButton({
+  command,
+  label = "Copy install command",
+  className,
+}: {
+  command: string
+  label?: string
+  className?: string
+}) {
   const [copied, setCopied] = React.useState(false)
 
   React.useEffect(() => {
@@ -26,7 +34,8 @@ function CopyCommandButton({ command }: { command: string }) {
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="Copy install command"
+            aria-label={label}
+            className={className}
             onClick={async () => {
               await navigator.clipboard.writeText(command)
               setCopied(true)
