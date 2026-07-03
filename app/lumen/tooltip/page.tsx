@@ -4,7 +4,7 @@ import {
   CopyCommandButton,
   CopyCommandCta,
 } from "@/components/lumen/copy-command-button"
-import { TooltipSidesDemo } from "@/components/lumen/tooltip-sides-demo"
+import { TooltipPlayground } from "@/components/lumen/tooltip-playground"
 import {
   Tooltip,
   TooltipContent,
@@ -133,12 +133,12 @@ export default function LumenTooltipPage() {
 
           <section>
             <h2 className="text-[16px] font-medium text-[#18181b] dark:text-[#f3f3f5]">
-              Sides
+              Playground
             </h2>
             <p className="mt-1 text-[15px] leading-[25px] text-[#52525b] dark:text-[#c1c1c6]">
-              四个方向由同一套向量几何生成，尾巴始终平滑衔接。
+              切换尾巴配方、悬停测试四个方向的弹出位置，并查看不同宽高内容下的形状表现。
             </p>
-            <TooltipSidesDemo />
+            <TooltipPlayground />
           </section>
         </div>
 

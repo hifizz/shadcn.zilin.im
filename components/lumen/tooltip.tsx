@@ -28,13 +28,28 @@ function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
 
 type BubbleSide = "top" | "bottom" | "left" | "right"
 
-// Tail geometry: aw/ah shape the ideal triangle, flare bows its root
-// outward (concave) into the panel, tip rounds its point (convex).
-const TAIL_AW = 4
-const TAIL_AH = 6
-const TAIL_FLARE = 2
-const TAIL_TIP = 1
-const CORNER_RADIUS = 8
+/**
+ * Tail geometry knobs:
+ * - `aw` / `ah`: half-width and height of the ideal triangle.
+ * - `flare`: how far the tail's root bows outward (concave) into the panel.
+ * - `tip`: radius that rounds the tail's point (convex).
+ * - `radius`: the panel's corner radius.
+ */
+type TailGeometry = {
+  aw: number
+  ah: number
+  flare: number
+  tip: number
+  radius: number
+}
+
+const DEFAULT_TAIL_GEOMETRY: TailGeometry = {
+  aw: 4,
+  ah: 6,
+  flare: 2,
+  tip: 1,
+  radius: 8,
+}
 
 const TAIL_EDGE_FOR_SIDE: Record<BubbleSide, BubbleSide> = {
   top: "bottom",
@@ -68,14 +83,20 @@ const scale = (a: Vec, s: number): Vec => [a[0] * s, a[1] * s]
  * seam a separately-rotated arrow square leaves behind: a concave bezier
  * flares the tail's root into the panel, then a circular arc rounds its tip.
  */
-function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
+function buildBubblePath(
+  width: number,
+  height: number,
+  tailEdge: BubbleSide,
+  geo: TailGeometry
+) {
+  const { aw, ah, flare, tip } = geo
   const r = Math.max(
     0,
-    Math.min(CORNER_RADIUS, width / 2 - TAIL_AW - 1, height / 2 - TAIL_AW - 1)
+    Math.min(geo.radius, width / 2 - aw - 1, height / 2 - aw - 1)
   )
 
-  const ox = tailEdge === "left" ? TAIL_AH : 0
-  const oy = tailEdge === "top" ? TAIL_AH : 0
+  const ox = tailEdge === "left" ? ah : 0
+  const oy = tailEdge === "top" ? ah : 0
 
   const corners = {
     tl: [ox, oy] as Vec,
@@ -95,26 +116,26 @@ function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
   const o = OUTWARD[tailEdge]
   const m = mid[tailEdge]
 
-  const len = Math.hypot(TAIL_AW, TAIL_AH) || 1
+  const len = Math.hypot(aw, ah) || 1
   // Unit direction from each root shoulder toward the apex.
-  const dirRight = scale(add(scale(a, TAIL_AW), scale(o, TAIL_AH)), 1 / len)
-  const dirLeft = scale(add(scale(a, -TAIL_AW), scale(o, TAIL_AH)), 1 / len)
+  const dirRight = scale(add(scale(a, aw), scale(o, ah)), 1 / len)
+  const dirLeft = scale(add(scale(a, -aw), scale(o, ah)), 1 / len)
 
-  const apex = add(m, scale(o, TAIL_AH))
-  const rootRight = sub(m, scale(a, TAIL_AW))
-  const rootLeft = add(m, scale(a, TAIL_AW))
+  const apex = add(m, scale(o, ah))
+  const rootRight = sub(m, scale(a, aw))
+  const rootLeft = add(m, scale(a, aw))
 
-  const tipCut = Math.min((TAIL_TIP * TAIL_AH) / Math.max(TAIL_AW, 1e-4), len * 0.6)
-  const flareRun = Math.max(0, Math.min(TAIL_FLARE, len - tipCut - 2))
+  const tipCut = Math.min((tip * ah) / Math.max(aw, 1e-4), len * 0.6)
+  const flareRun = Math.max(0, Math.min(flare, len - tipCut - 2))
 
   const tRight = sub(apex, scale(dirRight, tipCut))
   const tLeft = sub(apex, scale(dirLeft, tipCut))
   const sRight = add(rootRight, scale(dirRight, flareRun))
   const sLeft = add(rootLeft, scale(dirLeft, flareRun))
-  const eRight = sub(m, scale(a, TAIL_AW + TAIL_FLARE))
-  const eLeft = add(m, scale(a, TAIL_AW + TAIL_FLARE))
+  const eRight = sub(m, scale(a, aw + flare))
+  const eLeft = add(m, scale(a, aw + flare))
 
-  const c1 = TAIL_FLARE * 0.55
+  const c1 = flare * 0.55
   const c2 = flareRun * 0.55
 
   const f = (n: number) => Number(n.toFixed(2))
@@ -129,7 +150,7 @@ function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
         `C ${pt(add(eRight, scale(a, c1)))} ${pt(sub(sRight, scale(dirRight, c2)))} ${pt(sRight)}`
       )
       segments.push(`L ${pt(tRight)}`)
-      segments.push(`A ${f(TAIL_TIP)} ${f(TAIL_TIP)} 0 0 1 ${pt(tLeft)}`)
+      segments.push(`A ${f(tip)} ${f(tip)} 0 0 1 ${pt(tLeft)}`)
       segments.push(`L ${pt(sLeft)}`)
       segments.push(
         `C ${pt(sub(sLeft, scale(dirLeft, c2)))} ${pt(sub(eLeft, scale(a, c1)))} ${pt(eLeft)}`
@@ -160,8 +181,8 @@ function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
 
   segments.push("Z")
 
-  const viewWidth = width + (tailEdge === "left" || tailEdge === "right" ? TAIL_AH : 0)
-  const viewHeight = height + (tailEdge === "top" || tailEdge === "bottom" ? TAIL_AH : 0)
+  const viewWidth = width + (tailEdge === "left" || tailEdge === "right" ? ah : 0)
+  const viewHeight = height + (tailEdge === "top" || tailEdge === "bottom" ? ah : 0)
 
   return { d: segments.join(" "), viewWidth, viewHeight }
 }
@@ -169,13 +190,16 @@ function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
 function TooltipBubble({
   side,
   size,
+  geometry,
 }: {
   side: BubbleSide
   size: { width: number; height: number }
+  geometry: TailGeometry
 }) {
   const { d, viewWidth, viewHeight } = React.useMemo(
-    () => buildBubblePath(size.width, size.height, TAIL_EDGE_FOR_SIDE[side]),
-    [size.width, size.height, side]
+    () =>
+      buildBubblePath(size.width, size.height, TAIL_EDGE_FOR_SIDE[side], geometry),
+    [size.width, size.height, side, geometry]
   )
 
   return (
@@ -204,13 +228,22 @@ function TooltipContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
+  tail,
   children,
   ...props
 }: TooltipPrimitive.Popup.Props &
   Pick<
     TooltipPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
-  >) {
+  > & {
+    /** Override the tail/panel geometry. Merged over the defaults. */
+    tail?: Partial<TailGeometry>
+  }) {
+  const geometry = React.useMemo(
+    () => ({ ...DEFAULT_TAIL_GEOMETRY, ...tail }),
+    [tail]
+  )
+
   const [measureNode, setMeasureNode] = React.useState<HTMLDivElement | null>(
     null
   )
@@ -254,13 +287,16 @@ function TooltipContent({
         >
           {size && (
             <>
-              <TooltipBubble side="top" size={size} />
-              <TooltipBubble side="bottom" size={size} />
-              <TooltipBubble side="left" size={size} />
-              <TooltipBubble side="right" size={size} />
+              <TooltipBubble side="top" size={size} geometry={geometry} />
+              <TooltipBubble side="bottom" size={size} geometry={geometry} />
+              <TooltipBubble side="left" size={size} geometry={geometry} />
+              <TooltipBubble side="right" size={size} geometry={geometry} />
             </>
           )}
-          <div className="relative group-data-[side=top]:pb-1.5 group-data-[side=bottom]:pt-1.5 group-data-[side=left]:pr-1.5 group-data-[side=inline-start]:pr-1.5 group-data-[side=right]:pl-1.5 group-data-[side=inline-end]:pl-1.5">
+          <div
+            style={{ "--tail-ah": `${geometry.ah}px` } as React.CSSProperties}
+            className="relative group-data-[side=top]:pb-[var(--tail-ah)] group-data-[side=bottom]:pt-[var(--tail-ah)] group-data-[side=left]:pr-[var(--tail-ah)] group-data-[side=inline-start]:pr-[var(--tail-ah)] group-data-[side=right]:pl-[var(--tail-ah)] group-data-[side=inline-end]:pl-[var(--tail-ah)]"
+          >
             <div
               ref={setMeasureNode}
               className="flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg"
@@ -274,4 +310,11 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+  DEFAULT_TAIL_GEOMETRY,
+}
+export type { TailGeometry }
