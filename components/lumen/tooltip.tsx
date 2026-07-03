@@ -28,11 +28,13 @@ function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
 
 type BubbleSide = "top" | "bottom" | "left" | "right"
 
-const BUBBLE_RADIUS = 10
-const TAIL_LENGTH = 8
-const TAIL_HALF_BASE = 6
-const TAIL_TIP_ROUND = 3
-const CIRCLE_K = 0.5522847498
+// Tail geometry: aw/ah shape the ideal triangle, flare bows its root
+// outward (concave) into the panel, tip rounds its point (convex).
+const TAIL_AW = 4
+const TAIL_AH = 6
+const TAIL_FLARE = 2
+const TAIL_TIP = 1
+const CORNER_RADIUS = 8
 
 const TAIL_EDGE_FOR_SIDE: Record<BubbleSide, BubbleSide> = {
   top: "bottom",
@@ -41,126 +43,125 @@ const TAIL_EDGE_FOR_SIDE: Record<BubbleSide, BubbleSide> = {
   right: "left",
 }
 
+const ALONG: Record<BubbleSide, [number, number]> = {
+  top: [1, 0],
+  right: [0, 1],
+  bottom: [-1, 0],
+  left: [0, -1],
+}
+const OUTWARD: Record<BubbleSide, [number, number]> = {
+  top: [0, -1],
+  right: [1, 0],
+  bottom: [0, 1],
+  left: [-1, 0],
+}
+
+type Vec = readonly [number, number]
+
+const add = (a: Vec, b: Vec): Vec => [a[0] + b[0], a[1] + b[1]]
+const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1]]
+const scale = (a: Vec, s: number): Vec => [a[0] * s, a[1] * s]
+
 /**
  * Draws the whole popup (rounded body + tail) as a single closed SVG path so
- * the tail blends into the body with a continuous curve instead of the
- * hard seam a separately-rotated arrow square leaves behind.
+ * the tail blends into the body with a continuous curve instead of the hard
+ * seam a separately-rotated arrow square leaves behind: a concave bezier
+ * flares the tail's root into the panel, then a circular arc rounds its tip.
  */
 function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
   const r = Math.max(
-    2,
-    Math.min(
-      BUBBLE_RADIUS,
-      width / 2 - TAIL_HALF_BASE - 2,
-      height / 2 - TAIL_HALF_BASE - 2
-    )
+    0,
+    Math.min(CORNER_RADIUS, width / 2 - TAIL_AW - 1, height / 2 - TAIL_AW - 1)
   )
-  const halfBase = Math.max(
-    2,
-    Math.min(TAIL_HALF_BASE, width / 2 - r - 1, height / 2 - r - 1)
-  )
-  const k = r * CIRCLE_K
 
-  const ox = tailEdge === "left" ? TAIL_LENGTH : 0
-  const oy = tailEdge === "top" ? TAIL_LENGTH : 0
+  const ox = tailEdge === "left" ? TAIL_AH : 0
+  const oy = tailEdge === "top" ? TAIL_AH : 0
 
   const corners = {
-    tl: [ox, oy] as const,
-    tr: [ox + width, oy] as const,
-    br: [ox + width, oy + height] as const,
-    bl: [ox, oy + height] as const,
+    tl: [ox, oy] as Vec,
+    tr: [ox + width, oy] as Vec,
+    br: [ox + width, oy + height] as Vec,
+    bl: [ox, oy + height] as Vec,
   }
 
-  const along: Record<BubbleSide, [number, number]> = {
-    top: [1, 0],
-    right: [0, 1],
-    bottom: [-1, 0],
-    left: [0, -1],
-  }
-  const outward: Record<BubbleSide, [number, number]> = {
-    top: [0, -1],
-    right: [1, 0],
-    bottom: [0, 1],
-    left: [-1, 0],
-  }
-  const mid: Record<BubbleSide, [number, number]> = {
+  const mid: Record<BubbleSide, Vec> = {
     top: [ox + width / 2, oy],
     right: [ox + width, oy + height / 2],
     bottom: [ox + width / 2, oy + height],
     left: [ox, oy + height / 2],
   }
 
-  const a = along[tailEdge]
-  const o = outward[tailEdge]
+  const a = ALONG[tailEdge]
+  const o = OUTWARD[tailEdge]
   const m = mid[tailEdge]
 
-  const s1: [number, number] = [
-    m[0] - a[0] * halfBase,
-    m[1] - a[1] * halfBase,
-  ]
-  const s2: [number, number] = [
-    m[0] + a[0] * halfBase,
-    m[1] + a[1] * halfBase,
-  ]
-  const tip: [number, number] = [
-    m[0] + o[0] * TAIL_LENGTH,
-    m[1] + o[1] * TAIL_LENGTH,
-  ]
+  const len = Math.hypot(TAIL_AW, TAIL_AH) || 1
+  // Unit direction from each root shoulder toward the apex.
+  const dirRight = scale(add(scale(a, TAIL_AW), scale(o, TAIL_AH)), 1 / len)
+  const dirLeft = scale(add(scale(a, -TAIL_AW), scale(o, TAIL_AH)), 1 / len)
 
-  const c1: [number, number] = [
-    s1[0] + a[0] * halfBase * 0.6,
-    s1[1] + a[1] * halfBase * 0.6,
-  ]
-  const c2: [number, number] = [
-    tip[0] - a[0] * TAIL_TIP_ROUND - o[0] * TAIL_TIP_ROUND,
-    tip[1] - a[1] * TAIL_TIP_ROUND - o[1] * TAIL_TIP_ROUND,
-  ]
-  const c3: [number, number] = [
-    tip[0] + a[0] * TAIL_TIP_ROUND - o[0] * TAIL_TIP_ROUND,
-    tip[1] + a[1] * TAIL_TIP_ROUND - o[1] * TAIL_TIP_ROUND,
-  ]
-  const c4: [number, number] = [
-    s2[0] - a[0] * halfBase * 0.6,
-    s2[1] - a[1] * halfBase * 0.6,
-  ]
+  const apex = add(m, scale(o, TAIL_AH))
+  const rootRight = sub(m, scale(a, TAIL_AW))
+  const rootLeft = add(m, scale(a, TAIL_AW))
 
-  const pt = (p: readonly [number, number]) => `${p[0]},${p[1]}`
+  const tipCut = Math.min((TAIL_TIP * TAIL_AH) / Math.max(TAIL_AW, 1e-4), len * 0.6)
+  const flareRun = Math.max(0, Math.min(TAIL_FLARE, len - tipCut - 2))
+
+  const tRight = sub(apex, scale(dirRight, tipCut))
+  const tLeft = sub(apex, scale(dirLeft, tipCut))
+  const sRight = add(rootRight, scale(dirRight, flareRun))
+  const sLeft = add(rootLeft, scale(dirLeft, flareRun))
+  const eRight = sub(m, scale(a, TAIL_AW + TAIL_FLARE))
+  const eLeft = add(m, scale(a, TAIL_AW + TAIL_FLARE))
+
+  const c1 = TAIL_FLARE * 0.55
+  const c2 = flareRun * 0.55
+
+  const f = (n: number) => Number(n.toFixed(2))
+  const pt = (p: Vec) => `${f(p[0])} ${f(p[1])}`
 
   const segments: string[] = [`M ${pt([corners.tl[0] + r, corners.tl[1]])}`]
 
-  const withTail = (edge: BubbleSide, straightEnd: readonly [number, number]) => {
+  const withTail = (edge: BubbleSide, straightEnd: Vec) => {
     if (tailEdge === edge) {
-      segments.push(`L ${pt(s1)}`)
-      segments.push(`C ${pt(c1)} ${pt(c2)} ${pt(tip)}`)
-      segments.push(`C ${pt(c3)} ${pt(c4)} ${pt(s2)}`)
+      segments.push(`L ${pt(eRight)}`)
+      segments.push(
+        `C ${pt(add(eRight, scale(a, c1)))} ${pt(sub(sRight, scale(dirRight, c2)))} ${pt(sRight)}`
+      )
+      segments.push(`L ${pt(tRight)}`)
+      segments.push(`A ${f(TAIL_TIP)} ${f(TAIL_TIP)} 0 0 1 ${pt(tLeft)}`)
+      segments.push(`L ${pt(sLeft)}`)
+      segments.push(
+        `C ${pt(sub(sLeft, scale(dirLeft, c2)))} ${pt(sub(eLeft, scale(a, c1)))} ${pt(eLeft)}`
+      )
     }
     segments.push(`L ${pt(straightEnd)}`)
   }
 
   withTail("top", [corners.tr[0] - r, corners.tr[1]])
   segments.push(
-    `C ${pt([corners.tr[0] - r + k, corners.tr[1]])} ${pt([corners.tr[0], corners.tr[1] + r - k])} ${pt([corners.tr[0], corners.tr[1] + r])}`
+    `Q ${pt(corners.tr)} ${pt([corners.tr[0], corners.tr[1] + r])}`
   )
 
   withTail("right", [corners.br[0], corners.br[1] - r])
   segments.push(
-    `C ${pt([corners.br[0], corners.br[1] - r + k])} ${pt([corners.br[0] - r + k, corners.br[1]])} ${pt([corners.br[0] - r, corners.br[1]])}`
+    `Q ${pt(corners.br)} ${pt([corners.br[0] - r, corners.br[1]])}`
   )
 
   withTail("bottom", [corners.bl[0] + r, corners.bl[1]])
   segments.push(
-    `C ${pt([corners.bl[0] + r - k, corners.bl[1]])} ${pt([corners.bl[0], corners.bl[1] - r + k])} ${pt([corners.bl[0], corners.bl[1] - r])}`
+    `Q ${pt(corners.bl)} ${pt([corners.bl[0], corners.bl[1] - r])}`
   )
 
   withTail("left", [corners.tl[0], corners.tl[1] + r])
   segments.push(
-    `C ${pt([corners.tl[0], corners.tl[1] + r - k])} ${pt([corners.tl[0] + r - k, corners.tl[1]])} ${pt([corners.tl[0] + r, corners.tl[1]])}`
+    `Q ${pt(corners.tl)} ${pt([corners.tl[0] + r, corners.tl[1]])}`
   )
 
   segments.push("Z")
 
-  const viewWidth = width + (tailEdge === "left" || tailEdge === "right" ? TAIL_LENGTH : 0)
-  const viewHeight = height + (tailEdge === "top" || tailEdge === "bottom" ? TAIL_LENGTH : 0)
+  const viewWidth = width + (tailEdge === "left" || tailEdge === "right" ? TAIL_AH : 0)
+  const viewHeight = height + (tailEdge === "top" || tailEdge === "bottom" ? TAIL_AH : 0)
 
   return { d: segments.join(" "), viewWidth, viewHeight }
 }
@@ -259,7 +260,7 @@ function TooltipContent({
               <TooltipBubble side="right" size={size} />
             </>
           )}
-          <div className="relative group-data-[side=top]:pb-2 group-data-[side=bottom]:pt-2 group-data-[side=left]:pr-2 group-data-[side=inline-start]:pr-2 group-data-[side=right]:pl-2 group-data-[side=inline-end]:pl-2">
+          <div className="relative group-data-[side=top]:pb-1.5 group-data-[side=bottom]:pt-1.5 group-data-[side=left]:pr-1.5 group-data-[side=inline-start]:pr-1.5 group-data-[side=right]:pl-1.5 group-data-[side=inline-end]:pl-1.5">
             <div
               ref={setMeasureNode}
               className="flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg"
