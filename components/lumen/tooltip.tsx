@@ -247,7 +247,7 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            "group relative z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) text-xs text-background data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "group relative z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) text-xs text-background duration-150 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=top]:slide-in-from-bottom-1 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=inline-start]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=inline-end]:slide-in-from-left-1 data-[side=top]:data-closed:slide-out-to-bottom-1 data-[side=bottom]:data-closed:slide-out-to-top-1 data-[side=left]:data-closed:slide-out-to-right-1 data-[side=inline-start]:data-closed:slide-out-to-right-1 data-[side=right]:data-closed:slide-out-to-left-1 data-[side=inline-end]:data-closed:slide-out-to-left-1",
             className
           )}
           {...props}

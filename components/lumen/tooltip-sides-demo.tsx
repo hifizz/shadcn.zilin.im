@@ -24,7 +24,7 @@ function TooltipSidesDemo() {
 
   return (
     <TooltipProvider>
-      <div className="mt-4 flex flex-wrap items-center gap-1.5">
+      <div className="mt-4 flex flex-wrap gap-2">
         {SIDES.map((s) => (
           <button
             key={s.value}
@@ -32,10 +32,10 @@ function TooltipSidesDemo() {
             aria-pressed={side === s.value}
             onClick={() => setSide(s.value)}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "rounded-[6px] border px-3 py-2 text-[13px] font-medium transition-colors",
               side === s.value
-                ? "border-stone-900 bg-stone-900 text-stone-50 dark:border-stone-100 dark:bg-stone-100 dark:text-stone-900"
-                : "border-stone-200 bg-transparent text-stone-500 hover:border-stone-300 hover:text-stone-900 dark:border-stone-800 dark:text-stone-400 dark:hover:border-stone-700 dark:hover:text-stone-100"
+                ? "border-[#18181b] bg-[#18181b] text-white dark:border-[#f3f3f5] dark:bg-[#f3f3f5] dark:text-[#18181b]"
+                : "border-[#f3f3f3] bg-[#fcfcfc] text-[#18181b] hover:border-[#e2e2e2] dark:border-[#2c2c2a] dark:bg-[#212121] dark:text-[#f3f3f5] dark:hover:border-[#3a3a3a]"
             )}
           >
             {s.label}
@@ -43,11 +43,11 @@ function TooltipSidesDemo() {
         ))}
       </div>
 
-      <div className="relative mt-4 flex h-[180px] items-center justify-center overflow-hidden rounded-2xl border border-stone-200 bg-[radial-gradient(#e7e5e4_1px,transparent_1px)] [background-size:16px_16px] dark:border-stone-800 dark:bg-[radial-gradient(#292524_1px,transparent_1px)]">
+      <div className="relative mt-4 flex h-[200px] items-center justify-center overflow-hidden rounded-[6px] border border-[#f3f3f3] bg-[radial-gradient(#e2e2e2_1px,transparent_1px)] [background-size:16px_16px] dark:border-[#2c2c2a] dark:bg-[radial-gradient(#2c2c2a_1px,transparent_1px)]">
         <Tooltip open onOpenChange={() => {}}>
           <TooltipTrigger
             render={
-              <button className="rounded-full border border-stone-200 bg-stone-50 px-4 py-2 text-sm font-medium text-stone-900 shadow-sm dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100" />
+              <button className="rounded-[6px] border border-[#ededed] bg-white px-4 py-2 text-[13px] font-medium text-[#18181b] shadow-sm dark:border-[#2e2e2d] dark:bg-[#212121] dark:text-[#f3f3f5]" />
             }
           >
             Trigger
