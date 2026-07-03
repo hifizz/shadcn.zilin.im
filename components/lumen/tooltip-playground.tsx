@@ -11,14 +11,44 @@ import {
   type TailGeometry,
 } from "@/components/lumen/tooltip"
 
-type Recipe = { name: string; label: string; tail: TailGeometry }
+type Recipe = {
+  name: string
+  math: string
+  desc: string
+  tail: TailGeometry
+  panel: { width: number; height: number }
+}
 
+/* 自定义配方：连同画布 W/H 一起应用 */
 const RECIPES: Recipe[] = [
-  { name: "default", label: "Default", tail: { aw: 4, ah: 6, flare: 2, tip: 1, radius: 8 } },
-  { name: "soft", label: "Soft flare", tail: { aw: 4, ah: 6, flare: 3, tip: 1, radius: 8 } },
-  { name: "sharp", label: "Sharp", tail: { aw: 5, ah: 8, flare: 0, tip: 0.5, radius: 8 } },
-  { name: "round", label: "Round panel", tail: { aw: 4, ah: 6, flare: 2, tip: 1, radius: 14 } },
-  { name: "long", label: "Long tail", tail: { aw: 5, ah: 11, flare: 3, tip: 1.5, radius: 8 } },
+  {
+    name: "等边三角 · 改",
+    math: "自定义 · 画布 109×28",
+    desc: "基于等边三角，flare 加大到 5（≈ah/√2），在 109×28 的真实 tooltip 尺寸上调校。",
+    tail: { aw: 4, ah: 7, flare: 5, tip: 1, radius: 7 },
+    panel: { width: 109, height: 28 },
+  },
+  {
+    name: "斐波那契 · 改",
+    math: "自定义 · 画布 109×28",
+    desc: "与「等边三角 · 改」参数相同，按提供的配置原样收录。",
+    tail: { aw: 4, ah: 7, flare: 5, tip: 1, radius: 7 },
+    panel: { width: 109, height: 28 },
+  },
+  {
+    name: "针尖 · 改",
+    math: "自定义 · 画布 109×28",
+    desc: "基于针尖，flare 4、R 8：盒体更圆润，0.5 的尖靠对比显锐。",
+    tail: { aw: 5, ah: 6, flare: 4, tip: 0.5, radius: 8 },
+    panel: { width: 109, height: 28 },
+  },
+  {
+    name: "白银比 · 改",
+    math: "自定义 · 画布 109×28",
+    desc: "与「针尖 · 改」参数相同，按提供的配置原样收录。",
+    tail: { aw: 5, ah: 6, flare: 4, tip: 0.5, radius: 8 },
+    panel: { width: 109, height: 28 },
+  },
 ]
 
 type SizeCase = {
@@ -68,8 +98,8 @@ const caption = "mb-2 text-[13px] font-medium text-[#18181b] dark:text-[#f3f3f5]
 const hint = "text-[#8f8f8f] dark:text-[#74747b]"
 
 function TooltipPlayground() {
-  const [recipeName, setRecipeName] = React.useState("default")
-  const recipe = RECIPES.find((r) => r.name === recipeName) ?? RECIPES[0]
+  const [index, setIndex] = React.useState(0)
+  const recipe = RECIPES[index]
   const tail = recipe.tail
 
   const directional = [
@@ -84,31 +114,34 @@ function TooltipPlayground() {
       {/* Recipe switcher */}
       <div className="mt-5">
         <p className={caption}>
-          配方 Recipe <span className={hint}>— 切换尾巴几何</span>
+          配方 Recipe <span className={hint}>— 连同画布 W/H 一起应用</span>
         </p>
         <div className="flex flex-wrap gap-2">
-          {RECIPES.map((r) => (
+          {RECIPES.map((r, i) => (
             <button
               key={r.name}
               type="button"
-              aria-pressed={r.name === recipeName}
-              onClick={() => setRecipeName(r.name)}
-              className={cn(chipBase, r.name === recipeName ? chipOn : chipOff)}
+              aria-pressed={i === index}
+              onClick={() => setIndex(i)}
+              className={cn(chipBase, i === index ? chipOn : chipOff)}
             >
-              {r.label}
+              {r.name}
             </button>
           ))}
         </div>
-        <p className="mt-2 font-mono text-[12px] text-[#8f8f8f] dark:text-[#74747b]">
-          {`aw:${tail.aw}  ah:${tail.ah}  flare:${tail.flare}  tip:${tail.tip}  R:${tail.radius}`}
+        <p className="mt-3 font-mono text-[12px] text-[#8f8f8f] dark:text-[#74747b]">
+          {`aw:${tail.aw}  ah:${tail.ah}  flare:${tail.flare}  tip:${tail.tip}  R:${tail.radius}  ·  画布 ${recipe.panel.width}×${recipe.panel.height}`}
+        </p>
+        <p className="mt-1 text-[13px] leading-[22px] text-[#52525b] dark:text-[#c1c1c6]">
+          {recipe.desc}
         </p>
       </div>
 
-      {/* Positioning square */}
+      {/* Positioning square — renders the recipe at its real 109×28 canvas */}
       <div className="mt-8">
         <p className={caption}>
           弹出位置 Positioning{" "}
-          <span className={hint}>— hover 每个按钮测试方向</span>
+          <span className={hint}>— hover 每个按钮，tooltip 按配方画布弹出</span>
         </p>
         <div
           className={cn(
@@ -122,28 +155,23 @@ function TooltipPlayground() {
                 <TooltipTrigger render={<button className={triggerBtn} />}>
                   {d.label}
                 </TooltipTrigger>
-                <TooltipContent side={d.side} tail={tail}>
+                <TooltipContent side={d.side} tail={tail} panelSize={recipe.panel}>
                   side=&quot;{d.side}&quot;
                 </TooltipContent>
               </Tooltip>
             </div>
           ))}
-          <div
-            className={cn(
-              "col-start-2 row-start-2 text-[12px]",
-              hint
-            )}
-          >
+          <div className={cn("col-start-2 row-start-2 text-[12px]", hint)}>
             hover
           </div>
         </div>
       </div>
 
-      {/* Content sizes */}
+      {/* Content sizes — same tail geometry, but content-driven panel sizes */}
       <div className="mt-8">
         <p className={caption}>
           内容尺寸 Content sizes{" "}
-          <span className={hint}>— 不同宽高下的形状</span>
+          <span className={hint}>— 同一尾巴几何，面板随内容自适应</span>
         </p>
         <div
           className={cn(

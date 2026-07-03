@@ -229,6 +229,7 @@ function TooltipContent({
   align = "center",
   alignOffset = 0,
   tail,
+  panelSize,
   children,
   ...props
 }: TooltipPrimitive.Popup.Props &
@@ -238,6 +239,8 @@ function TooltipContent({
   > & {
     /** Override the tail/panel geometry. Merged over the defaults. */
     tail?: Partial<TailGeometry>
+    /** Force a fixed panel size instead of sizing to the content. */
+    panelSize?: { width: number; height: number }
   }) {
   const geometry = React.useMemo(
     () => ({ ...DEFAULT_TAIL_GEOMETRY, ...tail }),
@@ -299,7 +302,15 @@ function TooltipContent({
           >
             <div
               ref={setMeasureNode}
-              className="flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg"
+              style={
+                panelSize
+                  ? { width: panelSize.width, height: panelSize.height }
+                  : undefined
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg",
+                panelSize && "justify-center overflow-hidden"
+              )}
             >
               {children}
             </div>
