@@ -1,0 +1,21 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "lumen",
+  "homepage": "https://shadcn.zilin.im",
+  "items": [
+    {
+      "name": "tooltip",
+      "type": "registry:ui",
+      "title": "Tooltip",
+      "description": "A tooltip whose tail is drawn as one continuous rounded shape with the panel, instead of a separately rotated arrow square.",
+      "dependencies": ["@base-ui/react"],
+      "files": [
+        {
+          "path": "components/lumen/tooltip.tsx",
+          "type": "registry:ui",
+          "target": "components/lumen/tooltip.tsx"
+        }
+      ]
+    }
+  ]
+}

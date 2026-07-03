@@ -1,3 +1,5 @@
+import Link from "next/link"
+
 import { Button } from "@/components/ui/button"
 
 export default function Page() {
@@ -9,6 +11,17 @@ export default function Page() {
           <p>You may now add components and start building.</p>
           <p>We&apos;ve already added the button component for you.</p>
           <Button className="mt-2">Button</Button>
+        </div>
+        <div>
+          <Link
+            href="/lumen/tooltip"
+            className="text-primary underline underline-offset-4"
+          >
+            /lumen/tooltip
+          </Link>{" "}
+          <span className="text-muted-foreground">
+            — a custom component from this library&apos;s Lumen registry.
+          </span>
         </div>
         <div className="font-mono text-xs text-muted-foreground">
           (Press <kbd>d</kbd> to toggle dark mode)
