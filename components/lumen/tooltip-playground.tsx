@@ -167,6 +167,33 @@ function TooltipPlayground() {
         </div>
       </div>
 
+      {/* Anchor tracking — the tail points at the trigger, not the panel centre */}
+      <div className="mt-8">
+        <p className={caption}>
+          锚点追踪 Anchor tracking{" "}
+          <span className={hint}>— 面板偏离触发器时，尾巴仍指向触发器</span>
+        </p>
+        <div
+          className={cn(
+            dotStage,
+            "flex flex-col items-center gap-8 px-6 py-10"
+          )}
+        >
+          {(["start", "center", "end"] as const).map((al) => (
+            <Tooltip key={al}>
+              <TooltipTrigger render={<button className={triggerBtn} />}>
+                align={al}
+              </TooltipTrigger>
+              <TooltipContent tail={tail} align={al} className="max-w-none">
+                <span className="whitespace-nowrap">
+                  一段较长的 tooltip 文案，让面板明显偏离触发器
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
+
       {/* Content sizes — same tail geometry, but content-driven panel sizes */}
       <div className="mt-8">
         <p className={caption}>

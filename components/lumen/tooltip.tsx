@@ -78,6 +78,23 @@ const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1]]
 const scale = (a: Vec, s: number): Vec => [a[0] * s, a[1] * s]
 
 /**
+ * Base UI writes `--transform-origin` on the positioner as the anchor's
+ * projection onto the popup — exactly where the tail should point. Its format
+ * is side-dependent: `"<x>px <y>"` for top/bottom, `"<x> <y>px"` for left/right
+ * (the off-axis value is a `calc()`), so we read the plain px on the tail axis.
+ */
+function parseTailAlong(
+  transformOrigin: string,
+  side: string | null
+): number | undefined {
+  const horizontal = side === "top" || side === "bottom"
+  const match = horizontal
+    ? transformOrigin.match(/^\s*(-?[\d.]+)px/)
+    : transformOrigin.match(/(-?[\d.]+)px\s*$/)
+  return match ? parseFloat(match[1]) : undefined
+}
+
+/**
  * Draws the whole popup (rounded body + tail) as a single closed SVG path so
  * the tail blends into the body with a continuous curve instead of the hard
  * seam a separately-rotated arrow square leaves behind: a concave bezier
@@ -87,7 +104,8 @@ function buildBubblePath(
   width: number,
   height: number,
   tailEdge: BubbleSide,
-  geo: TailGeometry
+  geo: TailGeometry,
+  tailAlong?: number
 ) {
   const { aw, ah, flare, tip } = geo
   const r = Math.max(
@@ -105,11 +123,22 @@ function buildBubblePath(
     bl: [ox, oy + height] as Vec,
   }
 
+  // Where the tail sits along its edge. Defaults to centered, but when a
+  // `tailAlong` (the anchor's projection onto this edge) is supplied, the tail
+  // tracks the trigger — clamped so its flared base stays off the corners.
+  const isHorizontal = tailEdge === "top" || tailEdge === "bottom"
+  const sideLen = isHorizontal ? width : height
+  const margin = r + aw + flare
+  const along =
+    tailAlong == null || sideLen - 2 * margin <= 0
+      ? sideLen / 2
+      : Math.min(Math.max(tailAlong, margin), sideLen - margin)
+
   const mid: Record<BubbleSide, Vec> = {
-    top: [ox + width / 2, oy],
-    right: [ox + width, oy + height / 2],
-    bottom: [ox + width / 2, oy + height],
-    left: [ox, oy + height / 2],
+    top: [ox + along, oy],
+    right: [ox + width, oy + along],
+    bottom: [ox + along, oy + height],
+    left: [ox, oy + along],
   }
 
   const a = ALONG[tailEdge]
@@ -191,15 +220,23 @@ function TooltipBubble({
   side,
   size,
   geometry,
+  tailAlong,
 }: {
   side: BubbleSide
   size: { width: number; height: number }
   geometry: TailGeometry
+  tailAlong?: number
 }) {
   const { d, viewWidth, viewHeight } = React.useMemo(
     () =>
-      buildBubblePath(size.width, size.height, TAIL_EDGE_FOR_SIDE[side], geometry),
-    [size.width, size.height, side, geometry]
+      buildBubblePath(
+        size.width,
+        size.height,
+        TAIL_EDGE_FOR_SIDE[side],
+        geometry,
+        tailAlong
+      ),
+    [size.width, size.height, side, geometry, tailAlong]
   )
 
   return (
@@ -271,9 +308,37 @@ function TooltipContent({
     return () => observer.disconnect()
   }, [measureNode])
 
+  // Track the tail to the anchor: Base UI repositions the popup (incl. collision
+  // shift) and records the anchor's projection in `--transform-origin` on the
+  // positioner. We read it so the tail points at the trigger rather than the
+  // panel's centre. Reading the inline style attribute forces no reflow.
+  const [positionerNode, setPositionerNode] =
+    React.useState<HTMLDivElement | null>(null)
+  const [tailAlong, setTailAlong] = React.useState<number | undefined>(undefined)
+
+  React.useLayoutEffect(() => {
+    if (!positionerNode) return
+
+    const readTailAlong = () => {
+      const origin = positionerNode.style.getPropertyValue("--transform-origin")
+      if (!origin) return
+      setTailAlong(parseTailAlong(origin, positionerNode.getAttribute("data-side")))
+    }
+
+    readTailAlong()
+
+    const observer = new MutationObserver(readTailAlong)
+    observer.observe(positionerNode, {
+      attributes: true,
+      attributeFilter: ["style", "data-side"],
+    })
+    return () => observer.disconnect()
+  }, [positionerNode])
+
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
+        ref={setPositionerNode}
         align={align}
         alignOffset={alignOffset}
         side={side}
@@ -290,10 +355,30 @@ function TooltipContent({
         >
           {size && (
             <>
-              <TooltipBubble side="top" size={size} geometry={geometry} />
-              <TooltipBubble side="bottom" size={size} geometry={geometry} />
-              <TooltipBubble side="left" size={size} geometry={geometry} />
-              <TooltipBubble side="right" size={size} geometry={geometry} />
+              <TooltipBubble
+                side="top"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+              />
+              <TooltipBubble
+                side="bottom"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+              />
+              <TooltipBubble
+                side="left"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+              />
+              <TooltipBubble
+                side="right"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+              />
             </>
           )}
           <div
