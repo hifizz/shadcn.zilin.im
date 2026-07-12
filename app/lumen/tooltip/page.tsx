@@ -1,5 +1,11 @@
-import { Button } from "@/components/ui/button"
-import { CopyCommandButton } from "@/components/lumen/copy-command-button"
+import Link from "next/link"
+
+import {
+  CopyCommandButton,
+  CopyCommandCta,
+} from "@/components/lumen/copy-command-button"
+import { TooltipPlayground } from "@/components/lumen/tooltip-playground"
+import { TooltipPanelsDemo } from "@/components/lumen/tooltip-panels-demo"
 import {
   Tooltip,
   TooltipContent,
@@ -8,69 +14,160 @@ import {
 } from "@/components/lumen/tooltip"
 
 const INSTALL_COMMAND = "npx shadcn@latest add @lumen/tooltip"
+const INSTALL_URL_COMMAND =
+  "npx shadcn@latest add https://shadcn.zilin.im/r/tooltip.json"
+
+const USAGE_CODE = `import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/lumen/tooltip"
+
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger render={<Button variant="outline" />}>
+      Hover me
+    </TooltipTrigger>
+    <TooltipContent>Smooth tail, no seam.</TooltipContent>
+  </Tooltip>
+</TooltipProvider>`
+
+function CodeBlock({ code, label }: { code: string; label: string }) {
+  return (
+    <div className="group relative overflow-hidden rounded-[6px] border border-[#f3f3f3] dark:border-[#2c2c2a]">
+      <pre className="overflow-x-auto bg-[linear-gradient(to_top,#f8f8f8,#fcfcfc_16px)] p-4 pe-14 font-mono text-[13px] leading-[19px] text-[#171717] dark:bg-[linear-gradient(to_top,#1a1a19,#212121_16px)] dark:text-[#f3f3f5]">
+        {code}
+      </pre>
+      <div className="absolute end-3 top-3">
+        <CopyCommandButton command={code} label={label} />
+      </div>
+    </div>
+  )
+}
 
 export default function LumenTooltipPage() {
   return (
-    <div className="mx-auto flex min-h-svh max-w-2xl flex-col gap-6 p-6">
-      <div>
-        <p className="text-xs font-medium text-muted-foreground">
-          lumen / tooltip
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold">Tooltip</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          一个圆角尾巴与面板无缝衔接的 tooltip：整个气泡（含尾巴）由一条连续的
-          SVG 路径绘制，而不是一个旋转后拼接上去的小方块，四个方向都是平滑的。
-        </p>
-      </div>
+    <div className="min-h-svh bg-[#fafafa] font-sans text-[#18181b] antialiased dark:bg-[#171716] dark:text-[#f3f3f5]">
+      <div className="mx-auto max-w-[672px] px-5">
+        <nav className="flex items-center justify-between py-5 text-[14px]">
+          <Link
+            href="/"
+            className="text-[#6f6f6f] transition-colors hover:text-[#18181b] dark:text-[#a1a1a8] dark:hover:text-[#f3f3f5]"
+          >
+            ← lumen
+          </Link>
+          <a
+            href="https://github.com/hifizz/shadcn.zilin.im"
+            target="_blank"
+            rel="noreferrer"
+            className="text-[#6f6f6f] transition-colors hover:text-[#18181b] dark:text-[#a1a1a8] dark:hover:text-[#f3f3f5]"
+          >
+            GitHub
+          </a>
+        </nav>
 
-      <TooltipProvider>
-        <section className="overflow-hidden rounded-3xl border">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <span className="text-sm font-medium">Preview</span>
-            <CopyCommandButton command={INSTALL_COMMAND} />
-          </div>
-
-          <div className="grid place-items-center gap-8 px-6 py-16">
-            <Tooltip>
-              <TooltipTrigger render={<Button variant="outline" />}>
-                Hover me (top)
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                平滑衔接的 tooltip panel
-              </TooltipContent>
-            </Tooltip>
-
-            <div className="flex flex-wrap items-center justify-center gap-8">
+        {/* Hero */}
+        <TooltipProvider>
+          <section className="flex flex-col items-center gap-3 pt-16 pb-4 text-center">
+            <div className="relative flex h-[120px] w-full items-end justify-center [mask-image:linear-gradient(0deg,transparent,#000_35%)]">
               <Tooltip>
-                <TooltipTrigger render={<Button variant="outline" />}>
-                  Left
+                <TooltipTrigger
+                  render={
+                    <button className="mb-4 rounded-[6px] border border-[#ededed] bg-white px-4 py-2 text-[13px] font-medium text-[#18181b] shadow-sm dark:border-[#2e2e2d] dark:bg-[#212121] dark:text-[#f3f3f5]" />
+                  }
+                >
+                  Hover me
                 </TooltipTrigger>
-                <TooltipContent side="left">向左展开</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger render={<Button variant="outline" />}>
-                  Right
-                </TooltipTrigger>
-                <TooltipContent side="right">向右展开</TooltipContent>
+                <TooltipContent>顺滑衔接的 tooltip panel</TooltipContent>
               </Tooltip>
             </div>
 
-            <Tooltip>
-              <TooltipTrigger render={<Button variant="outline" />}>
-                Hover me (bottom)
-              </TooltipTrigger>
-              <TooltipContent side="bottom">尾巴指向上方触发器</TooltipContent>
-            </Tooltip>
-          </div>
+            <h1 className="text-[48px] leading-none font-bold tracking-tight">
+              Tooltip
+            </h1>
+            <p className="max-w-[420px] text-[16px] leading-[25px] text-[#52525b] dark:text-[#c1c1c6]">
+              尾巴与面板由一条连续路径绘制 —— 根部平滑外扩、尖端圆润收拢，与面板严丝合缝地衔接。
+            </p>
 
-          <div className="border-t bg-muted/40 px-4 py-3">
-            <code className="font-mono text-xs text-muted-foreground">
-              {INSTALL_COMMAND}
-            </code>
-          </div>
-        </section>
-      </TooltipProvider>
+            <div className="mt-2 flex items-center gap-3">
+              <CopyCommandCta command={INSTALL_COMMAND} idleLabel="Copy install" />
+              <a
+                href="https://github.com/hifizz/shadcn.zilin.im"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[14px] text-[#6f6f6f] underline underline-offset-4 transition-colors hover:text-[#18181b] dark:text-[#a1a1a8] dark:hover:text-[#f3f3f5]"
+              >
+                GitHub
+              </a>
+            </div>
+          </section>
+        </TooltipProvider>
+
+        {/* Content */}
+        <div className="flex flex-col gap-14 pt-16">
+          <section>
+            <h2 className="text-[16px] font-medium text-[#18181b] dark:text-[#f3f3f5]">
+              Installation
+            </h2>
+            <p className="mt-1 mb-4 text-[15px] leading-[25px] text-[#52525b] dark:text-[#c1c1c6]">
+              通过 shadcn CLI 从 Lumen registry 安装：
+            </p>
+            <CodeBlock code={INSTALL_COMMAND} label="Copy install command" />
+            <p className="mt-3 text-[13px] leading-[22px] text-[#8f8f8f] dark:text-[#74747b]">
+              或直接用 registry JSON 地址：
+              <code className="ms-1 rounded-[6px] border border-[#f3f3f3] bg-[#ededed] px-[3.6px] py-[2px] font-mono text-[12px] text-[#171717] dark:border-[#2c2c2a] dark:bg-[#212121] dark:text-[#f3f3f5]">
+                {INSTALL_URL_COMMAND}
+              </code>
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-[16px] font-medium text-[#18181b] dark:text-[#f3f3f5]">
+              Usage
+            </h2>
+            <p className="mt-1 mb-4 text-[15px] leading-[25px] text-[#52525b] dark:text-[#c1c1c6]">
+              把 provider 放在应用根部，然后像标准 tooltip 一样组合使用。
+            </p>
+            <CodeBlock code={USAGE_CODE} label="Copy usage example" />
+          </section>
+
+          <section>
+            <h2 className="text-[16px] font-medium text-[#18181b] dark:text-[#f3f3f5]">
+              Playground
+            </h2>
+            <p className="mt-1 text-[15px] leading-[25px] text-[#52525b] dark:text-[#c1c1c6]">
+              切换尾巴配方、悬停测试四个方向的弹出位置，并查看不同宽高内容下的形状表现。
+            </p>
+            <TooltipPlayground />
+          </section>
+
+          <section>
+            <h2 className="text-[16px] font-medium text-[#18181b] dark:text-[#f3f3f5]">
+              Panels
+            </h2>
+            <p className="mt-1 mb-1 text-[15px] leading-[25px] text-[#52525b] dark:text-[#c1c1c6]">
+              同一条尾巴不只用于深色小 tooltip —— 用{" "}
+              <code className="rounded-[6px] border border-[#f3f3f3] bg-[#ededed] px-[3.6px] py-[2px] font-mono text-[12px] text-[#171717] dark:border-[#2c2c2a] dark:bg-[#212121] dark:text-[#f3f3f5]">
+                variant=&quot;panel&quot;
+              </code>{" "}
+              就能做成 macOS「查词」那样的浅色圆角面板：边框沿尾巴连续绕一圈、带柔和阴影，装下富内容。
+            </p>
+            <TooltipPanelsDemo />
+          </section>
+        </div>
+
+        <footer className="mt-24 border-t border-[#f3f3f3] py-6 text-[14px] text-[#8f8f8f] dark:border-[#2c2c2a] dark:text-[#74747b]">
+          Part of the{" "}
+          <Link
+            href="/"
+            className="underline underline-offset-4 transition-colors hover:text-[#18181b] dark:hover:text-[#f3f3f5]"
+          >
+            Lumen
+          </Link>{" "}
+          registry — shadcn.zilin.im
+        </footer>
+      </div>
     </div>
   )
 }

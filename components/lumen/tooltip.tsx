@@ -28,13 +28,28 @@ function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
 
 type BubbleSide = "top" | "bottom" | "left" | "right"
 
-// Tail geometry: aw/ah shape the ideal triangle, flare bows its root
-// outward (concave) into the panel, tip rounds its point (convex).
-const TAIL_AW = 4
-const TAIL_AH = 6
-const TAIL_FLARE = 2
-const TAIL_TIP = 1
-const CORNER_RADIUS = 8
+/**
+ * Tail geometry knobs:
+ * - `aw` / `ah`: half-width and height of the ideal triangle.
+ * - `flare`: how far the tail's root bows outward (concave) into the panel.
+ * - `tip`: radius that rounds the tail's point (convex).
+ * - `radius`: the panel's corner radius.
+ */
+type TailGeometry = {
+  aw: number
+  ah: number
+  flare: number
+  tip: number
+  radius: number
+}
+
+const DEFAULT_TAIL_GEOMETRY: TailGeometry = {
+  aw: 4,
+  ah: 6,
+  flare: 2,
+  tip: 1,
+  radius: 8,
+}
 
 const TAIL_EDGE_FOR_SIDE: Record<BubbleSide, BubbleSide> = {
   top: "bottom",
@@ -63,19 +78,43 @@ const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1]]
 const scale = (a: Vec, s: number): Vec => [a[0] * s, a[1] * s]
 
 /**
+ * Base UI writes `--transform-origin` on the positioner as the anchor's
+ * projection onto the popup — exactly where the tail should point. Its format
+ * is side-dependent: `"<x>px <y>"` for top/bottom, `"<x> <y>px"` for left/right
+ * (the off-axis value is a `calc()`), so we read the plain px on the tail axis.
+ */
+function parseTailAlong(
+  transformOrigin: string,
+  side: string | null
+): number | undefined {
+  const horizontal = side === "top" || side === "bottom"
+  const match = horizontal
+    ? transformOrigin.match(/^\s*(-?[\d.]+)px/)
+    : transformOrigin.match(/(-?[\d.]+)px\s*$/)
+  return match ? parseFloat(match[1]) : undefined
+}
+
+/**
  * Draws the whole popup (rounded body + tail) as a single closed SVG path so
  * the tail blends into the body with a continuous curve instead of the hard
  * seam a separately-rotated arrow square leaves behind: a concave bezier
  * flares the tail's root into the panel, then a circular arc rounds its tip.
  */
-function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
+function buildBubblePath(
+  width: number,
+  height: number,
+  tailEdge: BubbleSide,
+  geo: TailGeometry,
+  tailAlong?: number
+) {
+  const { aw, ah, flare, tip } = geo
   const r = Math.max(
     0,
-    Math.min(CORNER_RADIUS, width / 2 - TAIL_AW - 1, height / 2 - TAIL_AW - 1)
+    Math.min(geo.radius, width / 2 - aw - 1, height / 2 - aw - 1)
   )
 
-  const ox = tailEdge === "left" ? TAIL_AH : 0
-  const oy = tailEdge === "top" ? TAIL_AH : 0
+  const ox = tailEdge === "left" ? ah : 0
+  const oy = tailEdge === "top" ? ah : 0
 
   const corners = {
     tl: [ox, oy] as Vec,
@@ -84,37 +123,48 @@ function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
     bl: [ox, oy + height] as Vec,
   }
 
+  // Where the tail sits along its edge. Defaults to centered, but when a
+  // `tailAlong` (the anchor's projection onto this edge) is supplied, the tail
+  // tracks the trigger — clamped so its flared base stays off the corners.
+  const isHorizontal = tailEdge === "top" || tailEdge === "bottom"
+  const sideLen = isHorizontal ? width : height
+  const margin = r + aw + flare
+  const along =
+    tailAlong == null || sideLen - 2 * margin <= 0
+      ? sideLen / 2
+      : Math.min(Math.max(tailAlong, margin), sideLen - margin)
+
   const mid: Record<BubbleSide, Vec> = {
-    top: [ox + width / 2, oy],
-    right: [ox + width, oy + height / 2],
-    bottom: [ox + width / 2, oy + height],
-    left: [ox, oy + height / 2],
+    top: [ox + along, oy],
+    right: [ox + width, oy + along],
+    bottom: [ox + along, oy + height],
+    left: [ox, oy + along],
   }
 
   const a = ALONG[tailEdge]
   const o = OUTWARD[tailEdge]
   const m = mid[tailEdge]
 
-  const len = Math.hypot(TAIL_AW, TAIL_AH) || 1
+  const len = Math.hypot(aw, ah) || 1
   // Unit direction from each root shoulder toward the apex.
-  const dirRight = scale(add(scale(a, TAIL_AW), scale(o, TAIL_AH)), 1 / len)
-  const dirLeft = scale(add(scale(a, -TAIL_AW), scale(o, TAIL_AH)), 1 / len)
+  const dirRight = scale(add(scale(a, aw), scale(o, ah)), 1 / len)
+  const dirLeft = scale(add(scale(a, -aw), scale(o, ah)), 1 / len)
 
-  const apex = add(m, scale(o, TAIL_AH))
-  const rootRight = sub(m, scale(a, TAIL_AW))
-  const rootLeft = add(m, scale(a, TAIL_AW))
+  const apex = add(m, scale(o, ah))
+  const rootRight = sub(m, scale(a, aw))
+  const rootLeft = add(m, scale(a, aw))
 
-  const tipCut = Math.min((TAIL_TIP * TAIL_AH) / Math.max(TAIL_AW, 1e-4), len * 0.6)
-  const flareRun = Math.max(0, Math.min(TAIL_FLARE, len - tipCut - 2))
+  const tipCut = Math.min((tip * ah) / Math.max(aw, 1e-4), len * 0.6)
+  const flareRun = Math.max(0, Math.min(flare, len - tipCut - 2))
 
   const tRight = sub(apex, scale(dirRight, tipCut))
   const tLeft = sub(apex, scale(dirLeft, tipCut))
   const sRight = add(rootRight, scale(dirRight, flareRun))
   const sLeft = add(rootLeft, scale(dirLeft, flareRun))
-  const eRight = sub(m, scale(a, TAIL_AW + TAIL_FLARE))
-  const eLeft = add(m, scale(a, TAIL_AW + TAIL_FLARE))
+  const eRight = sub(m, scale(a, aw + flare))
+  const eLeft = add(m, scale(a, aw + flare))
 
-  const c1 = TAIL_FLARE * 0.55
+  const c1 = flare * 0.55
   const c2 = flareRun * 0.55
 
   const f = (n: number) => Number(n.toFixed(2))
@@ -129,7 +179,7 @@ function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
         `C ${pt(add(eRight, scale(a, c1)))} ${pt(sub(sRight, scale(dirRight, c2)))} ${pt(sRight)}`
       )
       segments.push(`L ${pt(tRight)}`)
-      segments.push(`A ${f(TAIL_TIP)} ${f(TAIL_TIP)} 0 0 1 ${pt(tLeft)}`)
+      segments.push(`A ${f(tip)} ${f(tip)} 0 0 1 ${pt(tLeft)}`)
       segments.push(`L ${pt(sLeft)}`)
       segments.push(
         `C ${pt(sub(sLeft, scale(dirLeft, c2)))} ${pt(sub(eLeft, scale(a, c1)))} ${pt(eLeft)}`
@@ -160,40 +210,69 @@ function buildBubblePath(width: number, height: number, tailEdge: BubbleSide) {
 
   segments.push("Z")
 
-  const viewWidth = width + (tailEdge === "left" || tailEdge === "right" ? TAIL_AH : 0)
-  const viewHeight = height + (tailEdge === "top" || tailEdge === "bottom" ? TAIL_AH : 0)
+  const viewWidth = width + (tailEdge === "left" || tailEdge === "right" ? ah : 0)
+  const viewHeight = height + (tailEdge === "top" || tailEdge === "bottom" ? ah : 0)
 
   return { d: segments.join(" "), viewWidth, viewHeight }
 }
 
+type TooltipVariant = "solid" | "panel"
+
+// A shape-following shadow (SVG drop-shadow so it wraps the tail too), used by
+// the light "panel" variant à la a macOS Look Up popover.
+const PANEL_SHADOW =
+  "[filter:drop-shadow(0px_6px_16px_rgba(0,0,0,0.14))] dark:[filter:drop-shadow(0px_10px_28px_rgba(0,0,0,0.55))]"
+
 function TooltipBubble({
   side,
   size,
+  geometry,
+  tailAlong,
+  variant,
 }: {
   side: BubbleSide
   size: { width: number; height: number }
+  geometry: TailGeometry
+  tailAlong?: number
+  variant: TooltipVariant
 }) {
   const { d, viewWidth, viewHeight } = React.useMemo(
-    () => buildBubblePath(size.width, size.height, TAIL_EDGE_FOR_SIDE[side]),
-    [size.width, size.height, side]
+    () =>
+      buildBubblePath(
+        size.width,
+        size.height,
+        TAIL_EDGE_FOR_SIDE[side],
+        geometry,
+        tailAlong
+      ),
+    [size.width, size.height, side, geometry, tailAlong]
   )
 
   return (
     <svg
       aria-hidden="true"
       className={cn(
-        "absolute inset-0 hidden size-full",
+        "absolute inset-0 hidden size-full overflow-visible",
         side === "top" && "group-data-[side=top]:block",
         side === "bottom" && "group-data-[side=bottom]:block",
         side === "left" &&
           "group-data-[side=left]:block group-data-[side=inline-start]:block",
         side === "right" &&
-          "group-data-[side=right]:block group-data-[side=inline-end]:block"
+          "group-data-[side=right]:block group-data-[side=inline-end]:block",
+        variant === "panel" && PANEL_SHADOW
       )}
       viewBox={`0 0 ${viewWidth} ${viewHeight}`}
       preserveAspectRatio="none"
     >
-      <path d={d} className="fill-foreground" />
+      <path
+        d={d}
+        className={cn(
+          variant === "panel"
+            ? "fill-popover stroke-border"
+            : "fill-foreground"
+        )}
+        strokeWidth={variant === "panel" ? 1 : undefined}
+      />
     </svg>
   )
 }
@@ -204,13 +283,31 @@ function TooltipContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
+  tail,
+  panelSize,
+  variant = "solid",
   children,
   ...props
 }: TooltipPrimitive.Popup.Props &
   Pick<
     TooltipPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
-  >) {
+  > & {
+    /** Override the tail/panel geometry. Merged over the defaults. */
+    tail?: Partial<TailGeometry>
+    /** Force a fixed panel size instead of sizing to the content. */
+    panelSize?: { width: number; height: number }
+    /**
+     * `"solid"` (default) is the dark tooltip; `"panel"` is a light popover
+     * card — bordered, shadowed, and sizing to rich content you provide.
+     */
+    variant?: TooltipVariant
+  }) {
+  const geometry = React.useMemo(
+    () => ({ ...DEFAULT_TAIL_GEOMETRY, ...tail }),
+    [tail]
+  )
+
   const [measureNode, setMeasureNode] = React.useState<HTMLDivElement | null>(
     null
   )
@@ -235,9 +332,37 @@ function TooltipContent({
     return () => observer.disconnect()
   }, [measureNode])
 
+  // Track the tail to the anchor: Base UI repositions the popup (incl. collision
+  // shift) and records the anchor's projection in `--transform-origin` on the
+  // positioner. We read it so the tail points at the trigger rather than the
+  // panel's centre. Reading the inline style attribute forces no reflow.
+  const [positionerNode, setPositionerNode] =
+    React.useState<HTMLDivElement | null>(null)
+  const [tailAlong, setTailAlong] = React.useState<number | undefined>(undefined)
+
+  React.useLayoutEffect(() => {
+    if (!positionerNode) return
+
+    const readTailAlong = () => {
+      const origin = positionerNode.style.getPropertyValue("--transform-origin")
+      if (!origin) return
+      setTailAlong(parseTailAlong(origin, positionerNode.getAttribute("data-side")))
+    }
+
+    readTailAlong()
+
+    const observer = new MutationObserver(readTailAlong)
+    observer.observe(positionerNode, {
+      attributes: true,
+      attributeFilter: ["style", "data-side"],
+    })
+    return () => observer.disconnect()
+  }, [positionerNode])
+
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
+        ref={setPositionerNode}
         align={align}
         alignOffset={alignOffset}
         side={side}
@@ -247,23 +372,63 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            "group relative z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) text-xs text-background data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "group relative z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) duration-150 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=top]:slide-in-from-bottom-1 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=inline-start]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=inline-end]:slide-in-from-left-1 data-[side=top]:data-closed:slide-out-to-bottom-1 data-[side=bottom]:data-closed:slide-out-to-top-1 data-[side=left]:data-closed:slide-out-to-right-1 data-[side=inline-start]:data-closed:slide-out-to-right-1 data-[side=right]:data-closed:slide-out-to-left-1 data-[side=inline-end]:data-closed:slide-out-to-left-1",
+            variant === "panel"
+              ? "text-popover-foreground"
+              : "text-xs text-background",
             className
           )}
           {...props}
         >
           {size && (
             <>
-              <TooltipBubble side="top" size={size} />
-              <TooltipBubble side="bottom" size={size} />
-              <TooltipBubble side="left" size={size} />
-              <TooltipBubble side="right" size={size} />
+              <TooltipBubble
+                side="top"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+                variant={variant}
+              />
+              <TooltipBubble
+                side="bottom"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+                variant={variant}
+              />
+              <TooltipBubble
+                side="left"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+                variant={variant}
+              />
+              <TooltipBubble
+                side="right"
+                size={size}
+                geometry={geometry}
+                tailAlong={tailAlong}
+                variant={variant}
+              />
             </>
           )}
-          <div className="relative group-data-[side=top]:pb-1.5 group-data-[side=bottom]:pt-1.5 group-data-[side=left]:pr-1.5 group-data-[side=inline-start]:pr-1.5 group-data-[side=right]:pl-1.5 group-data-[side=inline-end]:pl-1.5">
+          <div
+            style={{ "--tail-ah": `${geometry.ah}px` } as React.CSSProperties}
+            className="relative group-data-[side=top]:pb-[var(--tail-ah)] group-data-[side=bottom]:pt-[var(--tail-ah)] group-data-[side=left]:pr-[var(--tail-ah)] group-data-[side=inline-start]:pr-[var(--tail-ah)] group-data-[side=right]:pl-[var(--tail-ah)] group-data-[side=inline-end]:pl-[var(--tail-ah)]"
+          >
             <div
               ref={setMeasureNode}
-              className="flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg"
+              style={
+                panelSize
+                  ? { width: panelSize.width, height: panelSize.height }
+                  : undefined
+              }
+              className={cn(
+                variant === "panel"
+                  ? "block"
+                  : "flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg",
+                panelSize && "justify-center overflow-hidden"
+              )}
             >
               {children}
             </div>
@@ -274,4 +439,11 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+  DEFAULT_TAIL_GEOMETRY,
+}
+export type { TailGeometry }
