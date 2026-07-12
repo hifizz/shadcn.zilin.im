@@ -5,6 +5,7 @@ import {
   CopyCommandCta,
 } from "@/components/lumen/copy-command-button"
 import { TooltipPlayground } from "@/components/lumen/tooltip-playground"
+import { TooltipPanelsDemo } from "@/components/lumen/tooltip-panels-demo"
 import {
   Tooltip,
   TooltipContent,
@@ -139,6 +140,20 @@ export default function LumenTooltipPage() {
               切换尾巴配方、悬停测试四个方向的弹出位置，并查看不同宽高内容下的形状表现。
             </p>
             <TooltipPlayground />
+          </section>
+
+          <section>
+            <h2 className="text-[16px] font-medium text-[#18181b] dark:text-[#f3f3f5]">
+              Panels
+            </h2>
+            <p className="mt-1 mb-1 text-[15px] leading-[25px] text-[#52525b] dark:text-[#c1c1c6]">
+              同一条尾巴不只用于深色小 tooltip —— 用{" "}
+              <code className="rounded-[6px] border border-[#f3f3f3] bg-[#ededed] px-[3.6px] py-[2px] font-mono text-[12px] text-[#171717] dark:border-[#2c2c2a] dark:bg-[#212121] dark:text-[#f3f3f5]">
+                variant=&quot;panel&quot;
+              </code>{" "}
+              就能做成 macOS「查词」那样的浅色圆角面板：边框沿尾巴连续绕一圈、带柔和阴影，装下富内容。
+            </p>
+            <TooltipPanelsDemo />
           </section>
         </div>
 

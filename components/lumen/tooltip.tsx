@@ -216,16 +216,25 @@ function buildBubblePath(
   return { d: segments.join(" "), viewWidth, viewHeight }
 }
 
+type TooltipVariant = "solid" | "panel"
+
+// A shape-following shadow (SVG drop-shadow so it wraps the tail too), used by
+// the light "panel" variant à la a macOS Look Up popover.
+const PANEL_SHADOW =
+  "[filter:drop-shadow(0px_6px_16px_rgba(0,0,0,0.14))] dark:[filter:drop-shadow(0px_10px_28px_rgba(0,0,0,0.55))]"
+
 function TooltipBubble({
   side,
   size,
   geometry,
   tailAlong,
+  variant,
 }: {
   side: BubbleSide
   size: { width: number; height: number }
   geometry: TailGeometry
   tailAlong?: number
+  variant: TooltipVariant
 }) {
   const { d, viewWidth, viewHeight } = React.useMemo(
     () =>
@@ -243,18 +252,27 @@ function TooltipBubble({
     <svg
       aria-hidden="true"
       className={cn(
-        "absolute inset-0 hidden size-full",
+        "absolute inset-0 hidden size-full overflow-visible",
         side === "top" && "group-data-[side=top]:block",
         side === "bottom" && "group-data-[side=bottom]:block",
         side === "left" &&
           "group-data-[side=left]:block group-data-[side=inline-start]:block",
         side === "right" &&
-          "group-data-[side=right]:block group-data-[side=inline-end]:block"
+          "group-data-[side=right]:block group-data-[side=inline-end]:block",
+        variant === "panel" && PANEL_SHADOW
       )}
       viewBox={`0 0 ${viewWidth} ${viewHeight}`}
       preserveAspectRatio="none"
     >
-      <path d={d} className="fill-foreground" />
+      <path
+        d={d}
+        className={cn(
+          variant === "panel"
+            ? "fill-popover stroke-border"
+            : "fill-foreground"
+        )}
+        strokeWidth={variant === "panel" ? 1 : undefined}
+      />
     </svg>
   )
 }
@@ -267,6 +285,7 @@ function TooltipContent({
   alignOffset = 0,
   tail,
   panelSize,
+  variant = "solid",
   children,
   ...props
 }: TooltipPrimitive.Popup.Props &
@@ -278,6 +297,11 @@ function TooltipContent({
     tail?: Partial<TailGeometry>
     /** Force a fixed panel size instead of sizing to the content. */
     panelSize?: { width: number; height: number }
+    /**
+     * `"solid"` (default) is the dark tooltip; `"panel"` is a light popover
+     * card — bordered, shadowed, and sizing to rich content you provide.
+     */
+    variant?: TooltipVariant
   }) {
   const geometry = React.useMemo(
     () => ({ ...DEFAULT_TAIL_GEOMETRY, ...tail }),
@@ -348,7 +372,10 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            "group relative z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) text-xs text-background duration-150 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=top]:slide-in-from-bottom-1 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=inline-start]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=inline-end]:slide-in-from-left-1 data-[side=top]:data-closed:slide-out-to-bottom-1 data-[side=bottom]:data-closed:slide-out-to-top-1 data-[side=left]:data-closed:slide-out-to-right-1 data-[side=inline-start]:data-closed:slide-out-to-right-1 data-[side=right]:data-closed:slide-out-to-left-1 data-[side=inline-end]:data-closed:slide-out-to-left-1",
+            "group relative z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) duration-150 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=top]:slide-in-from-bottom-1 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=inline-start]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=inline-end]:slide-in-from-left-1 data-[side=top]:data-closed:slide-out-to-bottom-1 data-[side=bottom]:data-closed:slide-out-to-top-1 data-[side=left]:data-closed:slide-out-to-right-1 data-[side=inline-start]:data-closed:slide-out-to-right-1 data-[side=right]:data-closed:slide-out-to-left-1 data-[side=inline-end]:data-closed:slide-out-to-left-1",
+            variant === "panel"
+              ? "text-popover-foreground"
+              : "text-xs text-background",
             className
           )}
           {...props}
@@ -360,24 +387,28 @@ function TooltipContent({
                 size={size}
                 geometry={geometry}
                 tailAlong={tailAlong}
+                variant={variant}
               />
               <TooltipBubble
                 side="bottom"
                 size={size}
                 geometry={geometry}
                 tailAlong={tailAlong}
+                variant={variant}
               />
               <TooltipBubble
                 side="left"
                 size={size}
                 geometry={geometry}
                 tailAlong={tailAlong}
+                variant={variant}
               />
               <TooltipBubble
                 side="right"
                 size={size}
                 geometry={geometry}
                 tailAlong={tailAlong}
+                variant={variant}
               />
             </>
           )}
@@ -393,7 +424,9 @@ function TooltipContent({
                   : undefined
               }
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg",
+                variant === "panel"
+                  ? "block"
+                  : "flex items-center gap-1.5 px-3 py-1.5 has-data-[slot=kbd]:pe-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-lg",
                 panelSize && "justify-center overflow-hidden"
               )}
             >
